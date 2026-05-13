@@ -48,18 +48,72 @@ server.listen(process.env.PORT || '3000', () => {
 
 const eventHubReader = new EventHubReader(iotHubConnectionString, eventHubConsumerGroup);
 
-(async () => {
-  await eventHubReader.startReadMessage((message, date, deviceId) => {
+function parseTelemetryBody(body) {
+  if (body == null) return null;
+  if (typeof body === 'string') {
     try {
+      return JSON.parse(body);
+    } catch {
+      return null;
+    }
+  }
+  if (Buffer.isBuffer(body)) {
+    try {
+      return JSON.parse(body.toString());
+    } catch {
+      return null;
+    }
+  }
+  return typeof body === 'object' ? body : null;
+}
+
+function readEdgeAlertFromProperties(properties) {
+  if (!properties) return false;
+  let raw;
+  if (typeof properties.get === 'function') {
+    raw = properties.get('EdgeAlert') ?? properties.get('edgeAlert');
+  } else if (typeof properties === 'object') {
+    raw = properties.EdgeAlert ?? properties.edgeAlert;
+  } else {
+    return false;
+  }
+  if (raw === true) return true;
+  if (typeof raw === 'string' && raw.toLowerCase() === 'true') return true;
+  return false;
+}
+
+(async () => {
+  await eventHubReader.startReadMessage((messageBody, date, deviceId, applicationProperties) => {
+    try {
+      const iotData = parseTelemetryBody(messageBody);
+      if (!iotData || !deviceId) {
+        return;
+      }
+
+      const powerConsumption = Number(iotData.powerConsumption);
+      const acousticNoise = Number(iotData.acousticNoise);
+      const hasPower = !Number.isNaN(powerConsumption);
+      const hasNoise = !Number.isNaN(acousticNoise);
+      if (!hasPower && !hasNoise) {
+        return;
+      }
+
+      const messageDate =
+        date && typeof date.toISOString === 'function'
+          ? date.toISOString()
+          : new Date(date || Date.now()).toISOString();
+
       const payload = {
-        IotData: message,
-        MessageDate: date || Date.now().toISOString(),
-        DeviceId: deviceId,
+        deviceId,
+        messageDate,
+        powerConsumption: hasPower ? powerConsumption : null,
+        acousticNoise: hasNoise ? acousticNoise : null,
+        edgeAlert: readEdgeAlertFromProperties(applicationProperties),
       };
 
       wss.broadcast(JSON.stringify(payload));
     } catch (err) {
-      console.error('Error broadcasting: [%s] from [%s].', err, message);
+      console.error('Error broadcasting: [%s] from [%s].', err, messageBody);
     }
   });
 })().catch();
