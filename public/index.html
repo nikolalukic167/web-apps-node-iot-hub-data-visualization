@@ -15,6 +15,11 @@
 </head>
 
 <body>
+    <div id="edgeAlertBanner" class="edge-alert-banner" role="alert" aria-live="assertive" hidden>
+        <strong class="edge-alert-banner__title">Edge alert</strong>
+        <p id="edgeAlertMachineState" class="edge-alert-banner__state"></p>
+    </div>
+
     <h1 class="flexHeader">
         <span>
             <span id="deviceCount">0 devices</span>
@@ -22,15 +27,33 @@
         </span>
         <span>Team 06: CNC Machine Telemetry &amp; Edge Inference</span>
     </h1>
-    <p class="page-description" style="max-width:720px;margin:0 auto 1rem;text-align:left;color:#444;">Live telemetry from a CNC milling machine: power draw (~0–500&nbsp;W) and acoustic noise (~30–100&nbsp;dB). An Edge VM enriches messages with <code>EdgeAlert</code> and <code>MachineState</code> application properties.</p>
+    <p class="page-description">Live CNC dashboard: power and noise share one telemetry stream; spindle temperature is plotted only for sensor <code>edge-spindle-temp-04</code>. Application properties may include <code>EdgeAlert</code> and <code>MachineState</code>.</p>
 
-    <div id="edgeInferenceBanner" class="edge-inference-banner" style="max-width:900px;margin:0 auto 1.25rem;text-align:left;padding:1rem 1.25rem;border-radius:8px;border:1px solid #86efac;background:#dcfce7;box-shadow:0 1px 3px rgba(0,0,0,0.08);transition:background-color 0.25s ease,border-color 0.25s ease,color 0.25s ease;">
-        <div style="font-weight:700;font-size:1rem;margin-bottom:0.5rem;">Real-Time Edge Inference State:</div>
-        <h4 id="machineStateDisplay" style="margin:0;font-size:1.1rem;font-weight:600;color:#14532d;">Connecting...</h4>
+    <div id="edgeInferenceBanner" class="edge-inference-banner">
+        <div class="edge-inference-banner__label">Real-Time Edge Inference State:</div>
+        <h4 id="machineStateDisplay" class="edge-inference-banner__state">Connecting...</h4>
     </div>
 
-    <div style="max-width:900px;margin:0 auto;">
-        <canvas id="iotChart"></canvas>
+    <div class="charts-grid">
+        <section class="chart-panel">
+            <h2 class="chart-panel__title">Power</h2>
+            <div class="chart-panel__canvas-wrap">
+                <canvas id="powerChart"></canvas>
+            </div>
+        </section>
+        <section class="chart-panel">
+            <h2 class="chart-panel__title">Noise</h2>
+            <div class="chart-panel__canvas-wrap">
+                <canvas id="noiseChart"></canvas>
+            </div>
+        </section>
+        <section class="chart-panel chart-panel--wide">
+            <h2 class="chart-panel__title">Spindle temperature</h2>
+            <p class="chart-panel__hint">Plots only when <code>sensorId</code> is <code>edge-spindle-temp-04</code>.</p>
+            <div class="chart-panel__canvas-wrap">
+                <canvas id="spindleTempChart"></canvas>
+            </div>
+        </section>
     </div>
 </body>
 

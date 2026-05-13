@@ -104,7 +104,12 @@ function readMachineStateFromProperties(properties) {
       const acousticNoise = Number(iotData.acousticNoise);
       const hasPower = !Number.isNaN(powerConsumption);
       const hasNoise = !Number.isNaN(acousticNoise);
-      if (!hasPower && !hasNoise) {
+
+      const isSpindleTemp =
+        iotData.sensorId === 'edge-spindle-temp-04' &&
+        !Number.isNaN(Number(iotData.temperature));
+
+      if (!hasPower && !hasNoise && !isSpindleTemp) {
         return;
       }
 
@@ -116,11 +121,16 @@ function readMachineStateFromProperties(properties) {
       const payload = {
         deviceId,
         messageDate,
-        powerConsumption: hasPower ? powerConsumption : null,
-        acousticNoise: hasNoise ? acousticNoise : null,
         EdgeAlert: readEdgeAlertFromProperties(applicationProperties),
         MachineState: readMachineStateFromProperties(applicationProperties),
       };
+
+      if (hasPower) payload.powerConsumption = powerConsumption;
+      if (hasNoise) payload.acousticNoise = acousticNoise;
+      if (isSpindleTemp) {
+        payload.sensorId = String(iotData.sensorId);
+        payload.temperature = Number(iotData.temperature);
+      }
 
       wss.broadcast(JSON.stringify(payload));
     } catch (err) {

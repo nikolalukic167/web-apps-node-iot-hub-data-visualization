@@ -44,3 +44,127 @@ select::-ms-expand {
 select:disabled::-ms-expand {
   background: #f60;
 }
+
+.page-description {
+  max-width: 720px;
+  margin: 0 auto 1rem;
+  text-align: left;
+  color: #444;
+}
+
+.edge-alert-banner {
+  display: none;
+  max-width: 900px;
+  margin: 0 auto 1rem;
+  padding: 0.85rem 1.15rem;
+  text-align: left;
+  border-radius: 8px;
+  border: 2px solid #7f1d1d;
+  background: #b91c1c;
+  color: #fff;
+  box-shadow: 0 0 0 0 rgba(185, 28, 28, 0.7);
+  animation: edge-alert-pulse 0.9s ease-in-out infinite;
+}
+
+.edge-alert-banner:not([hidden]) {
+  display: block;
+}
+
+.edge-alert-banner__title {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.edge-alert-banner__state {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+@keyframes edge-alert-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(185, 28, 28, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(185, 28, 28, 0);
+  }
+}
+
+.edge-inference-banner {
+  max-width: 900px;
+  margin: 0 auto 1.25rem;
+  padding: 1rem 1.25rem;
+  text-align: left;
+  border-radius: 8px;
+  border: 1px solid #86efac;
+  background: #dcfce7;
+  color: #14532d;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+}
+
+.edge-inference-banner__label {
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.edge-inference-banner__state {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #14532d;
+}
+
+.charts-grid {
+  max-width: 960px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem 1.5rem;
+  text-align: left;
+}
+
+.chart-panel {
+  background: #fafafa;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem 1rem 0.5rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.chart-panel--wide {
+  grid-column: 1 / -1;
+}
+
+.chart-panel__title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.chart-panel__hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.chart-panel__canvas-wrap {
+  position: relative;
+  height: 220px;
+}
+
+@media (max-width: 800px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-panel--wide {
+    grid-column: 1;
+  }
+}

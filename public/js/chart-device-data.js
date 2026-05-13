@@ -5,6 +5,9 @@ $(document).ready(() => {
   const protocol = document.location.protocol.startsWith('https') ? 'wss://' : 'ws://';
   const webSocket = new WebSocket(protocol + location.host);
 
+  const SPINDLE_SENSOR_ID = 'edge-spindle-temp-04';
+  const EDGE_ALERT_VISIBLE_MS = 10000;
+
   const NOMINAL_BANNER_STYLE = {
     background: '#dcfce7',
     borderColor: '#86efac',
@@ -16,6 +19,31 @@ $(document).ready(() => {
     color: '#fff',
   };
 
+  let edgeAlertHideTimeout;
+
+  function isEdgeAlertMessage(messageData) {
+    return (
+      messageData.EdgeAlert === true ||
+      messageData.EdgeAlert === 'true' ||
+      (typeof messageData.EdgeAlert === 'string' &&
+        messageData.EdgeAlert.toLowerCase() === 'true')
+    );
+  }
+
+  function showEdgeAlertBanner(machineStateText) {
+    const banner = document.getElementById('edgeAlertBanner');
+    const stateEl = document.getElementById('edgeAlertMachineState');
+    if (!banner || !stateEl) return;
+    stateEl.textContent = machineStateText && String(machineStateText).trim().length
+      ? String(machineStateText)
+      : 'Unknown alert condition';
+    banner.hidden = false;
+    clearTimeout(edgeAlertHideTimeout);
+    edgeAlertHideTimeout = setTimeout(() => {
+      banner.hidden = true;
+    }, EDGE_ALERT_VISIBLE_MS);
+  }
+
   class DeviceData {
     constructor(deviceId) {
       this.deviceId = deviceId;
@@ -23,9 +51,11 @@ $(document).ready(() => {
       this.timeData = new Array(this.maxLen);
       this.powerData = new Array(this.maxLen);
       this.noiseData = new Array(this.maxLen);
+      this.spindleTimeData = new Array(this.maxLen);
+      this.spindleTempData = new Array(this.maxLen);
     }
 
-    addData(time, powerW, noiseDb) {
+    addPowerNoise(time, powerW, noiseDb) {
       this.timeData.push(time);
       this.powerData.push(powerW);
       this.noiseData.push(noiseDb);
@@ -34,6 +64,16 @@ $(document).ready(() => {
         this.timeData.shift();
         this.powerData.shift();
         this.noiseData.shift();
+      }
+    }
+
+    addSpindleSample(time, tempC) {
+      this.spindleTimeData.push(time);
+      this.spindleTempData.push(tempC);
+
+      if (this.spindleTimeData.length > this.maxLen) {
+        this.spindleTimeData.shift();
+        this.spindleTempData.shift();
       }
     }
   }
@@ -60,79 +100,125 @@ $(document).ready(() => {
 
   const trackedDevices = new TrackedDevices();
 
-  const chartData = {
-    datasets: [
-      {
-        fill: false,
-        label: 'Power Consumption (W)',
-        yAxisID: 'Power',
-        borderColor: 'rgba(234, 88, 12, 1)',
-        pointBoarderColor: 'rgba(234, 88, 12, 1)',
-        backgroundColor: 'rgba(234, 88, 12, 0.35)',
-        pointHoverBackgroundColor: 'rgba(234, 88, 12, 1)',
-        pointHoverBorderColor: 'rgba(234, 88, 12, 1)',
-        spanGaps: true,
-      },
-      {
-        fill: false,
-        label: 'Acoustic Noise (dB)',
-        yAxisID: 'Noise',
-        borderColor: 'rgba(37, 99, 235, 1)',
-        pointBoarderColor: 'rgba(37, 99, 235, 1)',
-        backgroundColor: 'rgba(37, 99, 235, 0.35)',
-        pointHoverBackgroundColor: 'rgba(37, 99, 235, 1)',
-        pointHoverBorderColor: 'rgba(37, 99, 235, 1)',
-        spanGaps: true,
-      },
-    ],
-  };
+  function lineDataset(label, borderRgb, fillRgb) {
+    return {
+      fill: false,
+      label,
+      borderColor: borderRgb,
+      pointBoarderColor: borderRgb,
+      backgroundColor: fillRgb,
+      pointHoverBackgroundColor: borderRgb,
+      pointHoverBorderColor: borderRgb,
+      spanGaps: true,
+    };
+  }
 
-  const chartOptions = {
-    scales: {
-      yAxes: [
-        {
-          id: 'Power',
-          type: 'linear',
-          position: 'left',
-          scaleLabel: {
-            labelString: 'Power (W) — typical 0–500',
-            display: true,
-          },
-          ticks: {
-            min: 0,
-            max: 520,
-            stepSize: 50,
-          },
-          gridLines: {
-            color: 'rgba(0,0,0,0.06)',
-          },
-        },
-        {
-          id: 'Noise',
-          type: 'linear',
-          position: 'right',
-          scaleLabel: {
-            labelString: 'Noise (dB) — typical 30–100',
-            display: true,
-          },
-          ticks: {
-            min: 25,
-            max: 105,
-            stepSize: 10,
-          },
-          gridLines: {
-            drawOnChartArea: false,
-          },
-        },
+  const powerChart = new Chart(document.getElementById('powerChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      datasets: [
+        Object.assign(
+          lineDataset(
+            'Power consumption (W)',
+            'rgba(234, 88, 12, 1)',
+            'rgba(234, 88, 12, 0.35)',
+          ),
+          { data: [] },
+        ),
       ],
     },
-  };
+    options: {
+      maintainAspectRatio: false,
+      scales: {
+        xAxes: [{ display: true }],
+        yAxes: [
+          {
+            scaleLabel: {
+              display: true,
+              labelString: 'Power (W)',
+            },
+            ticks: {
+              min: 0,
+              max: 520,
+              stepSize: 50,
+            },
+            gridLines: { color: 'rgba(0,0,0,0.06)' },
+          },
+        ],
+      },
+    },
+  });
 
-  const ctx = document.getElementById('iotChart').getContext('2d');
-  const myLineChart = new Chart(ctx, {
+  const noiseChart = new Chart(document.getElementById('noiseChart').getContext('2d'), {
     type: 'line',
-    data: chartData,
-    options: chartOptions,
+    data: {
+      datasets: [
+        Object.assign(
+          lineDataset(
+            'Acoustic noise (dB)',
+            'rgba(37, 99, 235, 1)',
+            'rgba(37, 99, 235, 0.35)',
+          ),
+          { data: [] },
+        ),
+      ],
+    },
+    options: {
+      maintainAspectRatio: false,
+      scales: {
+        xAxes: [{ display: true }],
+        yAxes: [
+          {
+            scaleLabel: {
+              display: true,
+              labelString: 'Noise (dB)',
+            },
+            ticks: {
+              min: 25,
+              max: 105,
+              stepSize: 10,
+            },
+            gridLines: { color: 'rgba(0,0,0,0.06)' },
+          },
+        ],
+      },
+    },
+  });
+
+  const spindleChart = new Chart(document.getElementById('spindleTempChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      datasets: [
+        Object.assign(
+          lineDataset(
+            'Spindle temperature (°C)',
+            'rgba(185, 28, 28, 1)',
+            'rgba(185, 28, 28, 0.35)',
+          ),
+          { data: [] },
+        ),
+      ],
+    },
+    options: {
+      maintainAspectRatio: false,
+      scales: {
+        xAxes: [{ display: true }],
+        yAxes: [
+          {
+            scaleLabel: {
+              display: true,
+              labelString: 'Temperature (°C)',
+            },
+            ticks: {
+              min: 0,
+              max: 150,
+              stepSize: 10,
+            },
+            gridLines: { color: 'rgba(0,0,0,0.06)' },
+          },
+        ],
+      },
+    },
   });
 
   let needsAutoSelect = true;
@@ -160,23 +246,33 @@ $(document).ready(() => {
         : 'Unknown';
     machineStateDisplay.innerHTML = state;
 
-    const edgeAlert =
-      messageData.EdgeAlert === true ||
-      messageData.EdgeAlert === 'true' ||
-      (typeof messageData.EdgeAlert === 'string' &&
-        messageData.EdgeAlert.toLowerCase() === 'true');
+    const edgeAlert = isEdgeAlertMessage(messageData);
     const anomalyInText = state.toUpperCase().includes('ANOMALY');
     const isAnomaly = edgeAlert || anomalyInText;
 
     applyInferenceBannerStyle(isAnomaly);
+
+    if (edgeAlert) {
+      showEdgeAlertBanner(state);
+    }
+  }
+
+  function syncChartsFromDevice(device) {
+    powerChart.data.labels = device.timeData;
+    noiseChart.data.labels = device.timeData;
+    powerChart.data.datasets[0].data = device.powerData;
+    noiseChart.data.datasets[0].data = device.noiseData;
+    spindleChart.data.labels = device.spindleTimeData;
+    spindleChart.data.datasets[0].data = device.spindleTempData;
+    powerChart.update();
+    noiseChart.update();
+    spindleChart.update();
   }
 
   function OnSelectionChange() {
     const device = trackedDevices.findDevice(listOfDevices[listOfDevices.selectedIndex].text);
-    chartData.labels = device.timeData;
-    chartData.datasets[0].data = device.powerData;
-    chartData.datasets[1].data = device.noiseData;
-    myLineChart.update();
+    if (!device) return;
+    syncChartsFromDevice(device);
   }
   listOfDevices.addEventListener('change', OnSelectionChange, false);
 
@@ -185,9 +281,22 @@ $(document).ready(() => {
       const messageData = JSON.parse(message.data);
       console.log(messageData);
 
-      const hasPower = messageData.powerConsumption != null && !Number.isNaN(Number(messageData.powerConsumption));
-      const hasNoise = messageData.acousticNoise != null && !Number.isNaN(Number(messageData.acousticNoise));
-      if (!messageData.deviceId || !messageData.messageDate || (!hasPower && !hasNoise)) {
+      if (!messageData.deviceId || !messageData.messageDate) {
+        return;
+      }
+
+      const hasPower =
+        messageData.powerConsumption != null &&
+        !Number.isNaN(Number(messageData.powerConsumption));
+      const hasNoise =
+        messageData.acousticNoise != null &&
+        !Number.isNaN(Number(messageData.acousticNoise));
+      const hasSpindle =
+        messageData.sensorId === SPINDLE_SENSOR_ID &&
+        messageData.temperature != null &&
+        !Number.isNaN(Number(messageData.temperature));
+
+      if (!hasPower && !hasNoise && !hasSpindle) {
         return;
       }
 
@@ -196,16 +305,37 @@ $(document).ready(() => {
       const powerVal = hasPower ? Number(messageData.powerConsumption) : null;
       const noiseVal = hasNoise ? Number(messageData.acousticNoise) : null;
 
-      const existingDeviceData = trackedDevices.findDevice(messageData.deviceId);
+      let existingDeviceData = trackedDevices.findDevice(messageData.deviceId);
 
       if (existingDeviceData) {
-        existingDeviceData.addData(messageData.messageDate, powerVal, noiseVal);
+        if (hasPower || hasNoise) {
+          existingDeviceData.addPowerNoise(
+            messageData.messageDate,
+            powerVal,
+            noiseVal,
+          );
+        }
+        if (hasSpindle) {
+          existingDeviceData.addSpindleSample(
+            messageData.messageDate,
+            Number(messageData.temperature),
+          );
+        }
       } else {
         const newDeviceData = new DeviceData(messageData.deviceId);
         trackedDevices.devices.push(newDeviceData);
         const numDevices = trackedDevices.getDevicesCount();
         deviceCount.innerText = numDevices === 1 ? `${numDevices} device` : `${numDevices} devices`;
-        newDeviceData.addData(messageData.messageDate, powerVal, noiseVal);
+
+        if (hasPower || hasNoise) {
+          newDeviceData.addPowerNoise(messageData.messageDate, powerVal, noiseVal);
+        }
+        if (hasSpindle) {
+          newDeviceData.addSpindleSample(
+            messageData.messageDate,
+            Number(messageData.temperature),
+          );
+        }
 
         const node = document.createElement('option');
         const nodeText = document.createTextNode(messageData.deviceId);
@@ -216,10 +346,16 @@ $(document).ready(() => {
           needsAutoSelect = false;
           listOfDevices.selectedIndex = 0;
           OnSelectionChange();
+          return;
         }
       }
 
-      myLineChart.update();
+      const selected = trackedDevices.findDevice(
+        listOfDevices[listOfDevices.selectedIndex].text,
+      );
+      if (selected && selected.deviceId === messageData.deviceId) {
+        syncChartsFromDevice(selected);
+      }
     } catch (err) {
       console.error(err);
     }
