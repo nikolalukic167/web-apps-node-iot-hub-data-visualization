@@ -67,19 +67,29 @@ function parseTelemetryBody(body) {
   return typeof body === 'object' ? body : null;
 }
 
-function readEdgeAlertFromProperties(properties) {
-  if (!properties) return false;
-  let raw;
+function readProperty(properties, primaryKey, alternateKey) {
+  if (!properties) return undefined;
   if (typeof properties.get === 'function') {
-    raw = properties.get('EdgeAlert') ?? properties.get('edgeAlert');
-  } else if (typeof properties === 'object') {
-    raw = properties.EdgeAlert ?? properties.edgeAlert;
-  } else {
-    return false;
+    return properties.get(primaryKey) ?? properties.get(alternateKey);
   }
+  if (typeof properties === 'object') {
+    return properties[primaryKey] ?? properties[alternateKey];
+  }
+  return undefined;
+}
+
+function readEdgeAlertFromProperties(properties) {
+  const raw = readProperty(properties, 'EdgeAlert', 'edgeAlert');
   if (raw === true) return true;
   if (typeof raw === 'string' && raw.toLowerCase() === 'true') return true;
   return false;
+}
+
+function readMachineStateFromProperties(properties) {
+  const raw = readProperty(properties, 'MachineState', 'machineState');
+  if (raw == null) return 'Unknown';
+  const text = String(raw).trim();
+  return text.length ? text : 'Unknown';
 }
 
 (async () => {
@@ -108,7 +118,8 @@ function readEdgeAlertFromProperties(properties) {
         messageDate,
         powerConsumption: hasPower ? powerConsumption : null,
         acousticNoise: hasNoise ? acousticNoise : null,
-        edgeAlert: readEdgeAlertFromProperties(applicationProperties),
+        EdgeAlert: readEdgeAlertFromProperties(applicationProperties),
+        MachineState: readMachineStateFromProperties(applicationProperties),
       };
 
       wss.broadcast(JSON.stringify(payload));

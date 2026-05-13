@@ -11,20 +11,25 @@
     <script src="js/chart-device-data.js" type="text/javascript" charset="utf-8"></script>
     <link href="css/style.css" rel="stylesheet" />
 
-    <title>Team 06: Power Consumption &amp; Acoustic Noise</title>
+    <title>Team 06: CNC Machine Telemetry &amp; Edge Inference</title>
 </head>
 
 <body>
-    <div id="edgeAlertBanner" class="edge-alert-banner" role="alert" aria-live="polite" hidden style="display:none;background:#b91c1c;color:#fff;padding:0.65rem 1rem;margin:-50px -50px 1rem -50px;font-weight:700;letter-spacing:0.02em;border-bottom:3px solid #7f1d1d;box-shadow:0 2px 8px rgba(0,0,0,0.15);">⚠️ EDGE ALERT ACTIVE</div>
     <h1 class="flexHeader">
         <span>
             <span id="deviceCount">0 devices</span>
             <select id="listOfDevices" class="select_box"></select>
         </span>
-        <span>Team 06: Power Consumption &amp; Acoustic Noise</span>
+        <span>Team 06: CNC Machine Telemetry &amp; Edge Inference</span>
     </h1>
-    <p class="page-description" style="max-width:720px;margin:0 auto 1rem;text-align:left;color:#444;">Real-time industrial equipment telemetry: power draw (W) and acoustic noise level (dB). Edge devices may set the application property <code>EdgeAlert</code> to <code>true</code>.</p>
-    <div>
+    <p class="page-description" style="max-width:720px;margin:0 auto 1rem;text-align:left;color:#444;">Live telemetry from a CNC milling machine: power draw (~0–500&nbsp;W) and acoustic noise (~30–100&nbsp;dB). An Edge VM enriches messages with <code>EdgeAlert</code> and <code>MachineState</code> application properties.</p>
+
+    <div id="edgeInferenceBanner" class="edge-inference-banner" style="max-width:900px;margin:0 auto 1.25rem;text-align:left;padding:1rem 1.25rem;border-radius:8px;border:1px solid #86efac;background:#dcfce7;box-shadow:0 1px 3px rgba(0,0,0,0.08);transition:background-color 0.25s ease,border-color 0.25s ease,color 0.25s ease;">
+        <div style="font-weight:700;font-size:1rem;margin-bottom:0.5rem;">Real-Time Edge Inference State:</div>
+        <h4 id="machineStateDisplay" style="margin:0;font-size:1.1rem;font-weight:600;color:#14532d;">Connecting...</h4>
+    </div>
+
+    <div style="max-width:900px;margin:0 auto;">
         <canvas id="iotChart"></canvas>
     </div>
 </body>

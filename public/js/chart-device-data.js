@@ -2,11 +2,19 @@
 /* eslint-disable no-restricted-globals */
 /* eslint-disable no-undef */
 $(document).ready(() => {
-  const EDGE_ALERT_VISIBLE_MS = 5000;
-  let edgeAlertHideTimeout;
-
   const protocol = document.location.protocol.startsWith('https') ? 'wss://' : 'ws://';
   const webSocket = new WebSocket(protocol + location.host);
+
+  const NOMINAL_BANNER_STYLE = {
+    background: '#dcfce7',
+    borderColor: '#86efac',
+    color: '#14532d',
+  };
+  const ALERT_BANNER_STYLE = {
+    background: '#ea580c',
+    borderColor: '#9a3412',
+    color: '#fff',
+  };
 
   class DeviceData {
     constructor(deviceId) {
@@ -56,7 +64,7 @@ $(document).ready(() => {
     datasets: [
       {
         fill: false,
-        label: 'Power (W)',
+        label: 'Power Consumption (W)',
         yAxisID: 'Power',
         borderColor: 'rgba(234, 88, 12, 1)',
         pointBoarderColor: 'rgba(234, 88, 12, 1)',
@@ -67,7 +75,7 @@ $(document).ready(() => {
       },
       {
         fill: false,
-        label: 'Noise (dB)',
+        label: 'Acoustic Noise (dB)',
         yAxisID: 'Noise',
         borderColor: 'rgba(37, 99, 235, 1)',
         pointBoarderColor: 'rgba(37, 99, 235, 1)',
@@ -85,20 +93,36 @@ $(document).ready(() => {
         {
           id: 'Power',
           type: 'linear',
+          position: 'left',
           scaleLabel: {
-            labelString: 'Power (W)',
+            labelString: 'Power (W) — typical 0–500',
             display: true,
           },
-          position: 'left',
+          ticks: {
+            min: 0,
+            max: 520,
+            stepSize: 50,
+          },
+          gridLines: {
+            color: 'rgba(0,0,0,0.06)',
+          },
         },
         {
           id: 'Noise',
           type: 'linear',
+          position: 'right',
           scaleLabel: {
-            labelString: 'Noise (dB)',
+            labelString: 'Noise (dB) — typical 30–100',
             display: true,
           },
-          position: 'right',
+          ticks: {
+            min: 25,
+            max: 105,
+            stepSize: 10,
+          },
+          gridLines: {
+            drawOnChartArea: false,
+          },
         },
       ],
     },
@@ -114,17 +138,37 @@ $(document).ready(() => {
   let needsAutoSelect = true;
   const deviceCount = document.getElementById('deviceCount');
   const listOfDevices = document.getElementById('listOfDevices');
-  const edgeAlertBanner = document.getElementById('edgeAlertBanner');
+  const edgeInferenceBanner = document.getElementById('edgeInferenceBanner');
+  const machineStateDisplay = document.getElementById('machineStateDisplay');
 
-  function showEdgeAlertBanner() {
-    if (!edgeAlertBanner) return;
-    edgeAlertBanner.hidden = false;
-    edgeAlertBanner.style.display = 'block';
-    clearTimeout(edgeAlertHideTimeout);
-    edgeAlertHideTimeout = setTimeout(() => {
-      edgeAlertBanner.hidden = true;
-      edgeAlertBanner.style.display = 'none';
-    }, EDGE_ALERT_VISIBLE_MS);
+  function applyInferenceBannerStyle(isAnomaly) {
+    if (!edgeInferenceBanner) return;
+    const s = isAnomaly ? ALERT_BANNER_STYLE : NOMINAL_BANNER_STYLE;
+    edgeInferenceBanner.style.background = s.background;
+    edgeInferenceBanner.style.borderColor = s.borderColor;
+    edgeInferenceBanner.style.color = s.color;
+    if (machineStateDisplay) {
+      machineStateDisplay.style.color = s.color;
+    }
+  }
+
+  function updateMachineStateUi(messageData) {
+    if (!machineStateDisplay) return;
+    const state =
+      messageData.MachineState != null && String(messageData.MachineState).trim().length
+        ? String(messageData.MachineState)
+        : 'Unknown';
+    machineStateDisplay.innerHTML = state;
+
+    const edgeAlert =
+      messageData.EdgeAlert === true ||
+      messageData.EdgeAlert === 'true' ||
+      (typeof messageData.EdgeAlert === 'string' &&
+        messageData.EdgeAlert.toLowerCase() === 'true');
+    const anomalyInText = state.toUpperCase().includes('ANOMALY');
+    const isAnomaly = edgeAlert || anomalyInText;
+
+    applyInferenceBannerStyle(isAnomaly);
   }
 
   function OnSelectionChange() {
@@ -147,9 +191,7 @@ $(document).ready(() => {
         return;
       }
 
-      if (messageData.edgeAlert === true) {
-        showEdgeAlertBanner();
-      }
+      updateMachineStateUi(messageData);
 
       const powerVal = hasPower ? Number(messageData.powerConsumption) : null;
       const noiseVal = hasNoise ? Number(messageData.acousticNoise) : null;
