@@ -16,7 +16,7 @@
 
 <body>
     <div id="edgeAlertBanner" class="edge-alert-banner" role="alert" aria-live="assertive" hidden>
-        <strong class="edge-alert-banner__title">Edge alert</strong>
+        <strong class="edge-alert-banner__title">Machine alert</strong>
         <p id="edgeAlertMachineState" class="edge-alert-banner__state"></p>
     </div>
 
@@ -24,13 +24,14 @@
         <span>
             <span id="deviceCount">0 devices</span>
             <select id="listOfDevices" class="select_box"></select>
+            <small class="selector-hint">Select machine for power and noise</small>
         </span>
         <span>Team 06: CNC Machine Telemetry &amp; Edge Inference</span>
     </h1>
-    <p class="page-description">Live CNC dashboard: power and noise share one telemetry stream; spindle temperature is plotted only for sensor <code>edge-spindle-temp-04</code>. Application properties may include <code>EdgeAlert</code> and <code>MachineState</code>.</p>
+    <p class="page-description">Live CNC overview with real-time power, noise, and spindle temperature. Alerts are highlighted automatically when edge inference detects abnormal behavior.</p>
 
     <div id="edgeInferenceBanner" class="edge-inference-banner">
-        <div class="edge-inference-banner__label">Real-Time Edge Inference State:</div>
+        <div class="edge-inference-banner__label">Current machine state</div>
         <h4 id="machineStateDisplay" class="edge-inference-banner__state">Connecting...</h4>
     </div>
 
@@ -48,8 +49,8 @@
             </div>
         </section>
         <section class="chart-panel chart-panel--wide">
-            <h2 class="chart-panel__title">Spindle temperature</h2>
-            <p class="chart-panel__hint">Plots only when <code>sensorId</code> is <code>edge-spindle-temp-04</code>.</p>
+            <h2 class="chart-panel__title">Spindle Temperature</h2>
+            <p class="chart-panel__hint">Always live. This chart shows data from the dedicated spindle sensor stream.</p>
             <div class="chart-panel__canvas-wrap">
                 <canvas id="spindleTempChart"></canvas>
             </div>

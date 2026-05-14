@@ -36,7 +36,7 @@ $(document).ready(() => {
     if (!banner || !stateEl) return;
     stateEl.textContent = machineStateText && String(machineStateText).trim().length
       ? String(machineStateText)
-      : 'Unknown alert condition';
+      : 'Alert received';
     banner.hidden = false;
     clearTimeout(edgeAlertHideTimeout);
     edgeAlertHideTimeout = setTimeout(() => {
@@ -51,8 +51,6 @@ $(document).ready(() => {
       this.timeData = new Array(this.maxLen);
       this.powerData = new Array(this.maxLen);
       this.noiseData = new Array(this.maxLen);
-      this.spindleTimeData = new Array(this.maxLen);
-      this.spindleTempData = new Array(this.maxLen);
     }
 
     addPowerNoise(time, powerW, noiseDb) {
@@ -64,16 +62,6 @@ $(document).ready(() => {
         this.timeData.shift();
         this.powerData.shift();
         this.noiseData.shift();
-      }
-    }
-
-    addSpindleSample(time, tempC) {
-      this.spindleTimeData.push(time);
-      this.spindleTempData.push(tempC);
-
-      if (this.spindleTimeData.length > this.maxLen) {
-        this.spindleTimeData.shift();
-        this.spindleTempData.shift();
       }
     }
   }
@@ -99,6 +87,11 @@ $(document).ready(() => {
   }
 
   const trackedDevices = new TrackedDevices();
+  const spindleData = {
+    maxLen: 50,
+    timeData: new Array(50),
+    tempData: new Array(50),
+  };
 
   function lineDataset(label, borderRgb, fillRgb) {
     return {
@@ -227,6 +220,22 @@ $(document).ready(() => {
   const edgeInferenceBanner = document.getElementById('edgeInferenceBanner');
   const machineStateDisplay = document.getElementById('machineStateDisplay');
 
+  function addSpindleSample(time, tempC) {
+    spindleData.timeData.push(time);
+    spindleData.tempData.push(tempC);
+
+    if (spindleData.timeData.length > spindleData.maxLen) {
+      spindleData.timeData.shift();
+      spindleData.tempData.shift();
+    }
+  }
+
+  function syncSpindleChart() {
+    spindleChart.data.labels = spindleData.timeData;
+    spindleChart.data.datasets[0].data = spindleData.tempData;
+    spindleChart.update();
+  }
+
   function applyInferenceBannerStyle(isAnomaly) {
     if (!edgeInferenceBanner) return;
     const s = isAnomaly ? ALERT_BANNER_STYLE : NOMINAL_BANNER_STYLE;
@@ -262,11 +271,8 @@ $(document).ready(() => {
     noiseChart.data.labels = device.timeData;
     powerChart.data.datasets[0].data = device.powerData;
     noiseChart.data.datasets[0].data = device.noiseData;
-    spindleChart.data.labels = device.spindleTimeData;
-    spindleChart.data.datasets[0].data = device.spindleTempData;
     powerChart.update();
     noiseChart.update();
-    spindleChart.update();
   }
 
   function OnSelectionChange() {
@@ -301,41 +307,32 @@ $(document).ready(() => {
       }
 
       updateMachineStateUi(messageData);
+      if (hasSpindle) {
+        addSpindleSample(
+          messageData.messageDate,
+          Number(messageData.temperature),
+        );
+        syncSpindleChart();
+      }
 
       const powerVal = hasPower ? Number(messageData.powerConsumption) : null;
       const noiseVal = hasNoise ? Number(messageData.acousticNoise) : null;
 
       let existingDeviceData = trackedDevices.findDevice(messageData.deviceId);
 
-      if (existingDeviceData) {
-        if (hasPower || hasNoise) {
-          existingDeviceData.addPowerNoise(
-            messageData.messageDate,
-            powerVal,
-            noiseVal,
-          );
-        }
-        if (hasSpindle) {
-          existingDeviceData.addSpindleSample(
-            messageData.messageDate,
-            Number(messageData.temperature),
-          );
-        }
-      } else {
+      if (existingDeviceData && (hasPower || hasNoise)) {
+        existingDeviceData.addPowerNoise(
+          messageData.messageDate,
+          powerVal,
+          noiseVal,
+        );
+      } else if (hasPower || hasNoise) {
         const newDeviceData = new DeviceData(messageData.deviceId);
         trackedDevices.devices.push(newDeviceData);
         const numDevices = trackedDevices.getDevicesCount();
         deviceCount.innerText = numDevices === 1 ? `${numDevices} device` : `${numDevices} devices`;
 
-        if (hasPower || hasNoise) {
-          newDeviceData.addPowerNoise(messageData.messageDate, powerVal, noiseVal);
-        }
-        if (hasSpindle) {
-          newDeviceData.addSpindleSample(
-            messageData.messageDate,
-            Number(messageData.temperature),
-          );
-        }
+        newDeviceData.addPowerNoise(messageData.messageDate, powerVal, noiseVal);
 
         const node = document.createElement('option');
         const nodeText = document.createTextNode(messageData.deviceId);
@@ -350,11 +347,13 @@ $(document).ready(() => {
         }
       }
 
-      const selected = trackedDevices.findDevice(
-        listOfDevices[listOfDevices.selectedIndex].text,
-      );
-      if (selected && selected.deviceId === messageData.deviceId) {
-        syncChartsFromDevice(selected);
+      if (listOfDevices.selectedIndex >= 0) {
+        const selected = trackedDevices.findDevice(
+          listOfDevices[listOfDevices.selectedIndex].text,
+        );
+        if (selected && selected.deviceId === messageData.deviceId && (hasPower || hasNoise)) {
+          syncChartsFromDevice(selected);
+        }
       }
     } catch (err) {
       console.error(err);

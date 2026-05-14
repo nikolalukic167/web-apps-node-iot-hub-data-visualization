@@ -36,6 +36,11 @@ body select option {
   padding: 0 4px;
 }
 
+.selector-hint {
+  margin-left: 8px;
+  color: #6b7280;
+}
+
 /* for Edge */
 select::-ms-expand {
   display: none;
