@@ -219,6 +219,33 @@ $(document).ready(() => {
   const listOfDevices = document.getElementById('listOfDevices');
   const edgeInferenceBanner = document.getElementById('edgeInferenceBanner');
   const machineStateDisplay = document.getElementById('machineStateDisplay');
+  const powerLastUpdate = document.getElementById('powerLastUpdate');
+  const noiseLastUpdate = document.getElementById('noiseLastUpdate');
+  const spindleLastUpdate = document.getElementById('spindleLastUpdate');
+  const powerEmptyState = document.getElementById('powerEmptyState');
+  const noiseEmptyState = document.getElementById('noiseEmptyState');
+  const spindleEmptyState = document.getElementById('spindleEmptyState');
+
+  function formatMessageTime(rawDate) {
+    if (!rawDate) return '--';
+    const parsed = new Date(rawDate);
+    if (Number.isNaN(parsed.getTime())) return '--';
+    return parsed.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  }
+
+  function updateLastUpdateLabel(element, rawDate) {
+    if (!element) return;
+    element.textContent = formatMessageTime(rawDate);
+  }
+
+  function setEmptyStateVisibility(element, isVisible) {
+    if (!element) return;
+    element.hidden = !isVisible;
+  }
 
   function addSpindleSample(time, tempC) {
     spindleData.timeData.push(time);
@@ -233,6 +260,13 @@ $(document).ready(() => {
   function syncSpindleChart() {
     spindleChart.data.labels = spindleData.timeData;
     spindleChart.data.datasets[0].data = spindleData.tempData;
+    const hasSpindleData = spindleData.tempData.some((value) => value != null);
+    setEmptyStateVisibility(spindleEmptyState, !hasSpindleData);
+    if (hasSpindleData && spindleData.timeData.length) {
+      updateLastUpdateLabel(spindleLastUpdate, spindleData.timeData[spindleData.timeData.length - 1]);
+    } else {
+      updateLastUpdateLabel(spindleLastUpdate, null);
+    }
     spindleChart.update();
   }
 
@@ -271,16 +305,56 @@ $(document).ready(() => {
     noiseChart.data.labels = device.timeData;
     powerChart.data.datasets[0].data = device.powerData;
     noiseChart.data.datasets[0].data = device.noiseData;
+    const hasPowerData = device.powerData.some((value) => value != null);
+    const hasNoiseData = device.noiseData.some((value) => value != null);
+    setEmptyStateVisibility(powerEmptyState, !hasPowerData);
+    setEmptyStateVisibility(noiseEmptyState, !hasNoiseData);
+    updateLastUpdateLabel(powerLastUpdate, hasPowerData ? device.timeData[device.timeData.length - 1] : null);
+    updateLastUpdateLabel(noiseLastUpdate, hasNoiseData ? device.timeData[device.timeData.length - 1] : null);
     powerChart.update();
     noiseChart.update();
   }
 
+  function hasPowerNoiseSamples(device) {
+    if (!device) return false;
+    for (let i = 0; i < device.powerData.length; i += 1) {
+      const power = device.powerData[i];
+      const noise = device.noiseData[i];
+      if (power != null || noise != null) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function selectFirstValidDevice() {
+    for (let i = 0; i < listOfDevices.options.length; i += 1) {
+      const optionDevice = trackedDevices.findDevice(listOfDevices.options[i].text);
+      if (hasPowerNoiseSamples(optionDevice)) {
+        listOfDevices.selectedIndex = i;
+        syncChartsFromDevice(optionDevice);
+        return true;
+      }
+    }
+    setEmptyStateVisibility(powerEmptyState, true);
+    setEmptyStateVisibility(noiseEmptyState, true);
+    updateLastUpdateLabel(powerLastUpdate, null);
+    updateLastUpdateLabel(noiseLastUpdate, null);
+    return false;
+  }
+
   function OnSelectionChange() {
+    if (listOfDevices.selectedIndex < 0) return;
     const device = trackedDevices.findDevice(listOfDevices[listOfDevices.selectedIndex].text);
-    if (!device) return;
+    if (!hasPowerNoiseSamples(device)) {
+      selectFirstValidDevice();
+      return;
+    }
     syncChartsFromDevice(device);
   }
   listOfDevices.addEventListener('change', OnSelectionChange, false);
+  syncSpindleChart();
+  selectFirstValidDevice();
 
   webSocket.onmessage = function onMessage(message) {
     try {
@@ -301,6 +375,7 @@ $(document).ready(() => {
         messageData.sensorId === SPINDLE_SENSOR_ID &&
         messageData.temperature != null &&
         !Number.isNaN(Number(messageData.temperature));
+      const hasMachineTelemetry = (hasPower || hasNoise) && messageData.sensorId !== SPINDLE_SENSOR_ID;
 
       if (!hasPower && !hasNoise && !hasSpindle) {
         return;
@@ -320,13 +395,13 @@ $(document).ready(() => {
 
       let existingDeviceData = trackedDevices.findDevice(messageData.deviceId);
 
-      if (existingDeviceData && (hasPower || hasNoise)) {
+      if (existingDeviceData && hasMachineTelemetry) {
         existingDeviceData.addPowerNoise(
           messageData.messageDate,
           powerVal,
           noiseVal,
         );
-      } else if (hasPower || hasNoise) {
+      } else if (hasMachineTelemetry) {
         const newDeviceData = new DeviceData(messageData.deviceId);
         trackedDevices.devices.push(newDeviceData);
         const numDevices = trackedDevices.getDevicesCount();
@@ -351,7 +426,7 @@ $(document).ready(() => {
         const selected = trackedDevices.findDevice(
           listOfDevices[listOfDevices.selectedIndex].text,
         );
-        if (selected && selected.deviceId === messageData.deviceId && (hasPower || hasNoise)) {
+        if (selected && selected.deviceId === messageData.deviceId && hasMachineTelemetry) {
           syncChartsFromDevice(selected);
         }
       }

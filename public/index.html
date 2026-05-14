@@ -24,7 +24,7 @@
         <span>
             <span id="deviceCount">0 devices</span>
             <select id="listOfDevices" class="select_box"></select>
-            <small class="selector-hint">Select machine for power and noise</small>
+            <span class="selector-badge">Selector applies to Power + Noise</span>
         </span>
         <span>Team 06: CNC Machine Telemetry &amp; Edge Inference</span>
     </h1>
@@ -35,22 +35,33 @@
         <h4 id="machineStateDisplay" class="edge-inference-banner__state">Connecting...</h4>
     </div>
 
+    <h3 class="charts-section-title">Machine-specific telemetry</h3>
+    <div class="charts-section-subtitle">Power and noise follow the selected machine.</div>
     <div class="charts-grid">
         <section class="chart-panel">
             <h2 class="chart-panel__title">Power</h2>
+            <div class="chart-panel__meta">Last update: <span id="powerLastUpdate">--</span></div>
+            <div id="powerEmptyState" class="chart-empty-state" hidden>No recent power data for this machine.</div>
             <div class="chart-panel__canvas-wrap">
                 <canvas id="powerChart"></canvas>
             </div>
         </section>
         <section class="chart-panel">
             <h2 class="chart-panel__title">Noise</h2>
+            <div class="chart-panel__meta">Last update: <span id="noiseLastUpdate">--</span></div>
+            <div id="noiseEmptyState" class="chart-empty-state" hidden>No recent noise data for this machine.</div>
             <div class="chart-panel__canvas-wrap">
                 <canvas id="noiseChart"></canvas>
             </div>
         </section>
+    </div>
+    <h3 class="charts-section-title">Global spindle telemetry</h3>
+    <div class="charts-section-subtitle">Always live from the spindle sensor stream.</div>
+    <div class="charts-grid charts-grid--single">
         <section class="chart-panel chart-panel--wide">
             <h2 class="chart-panel__title">Spindle Temperature</h2>
-            <p class="chart-panel__hint">Always live. This chart shows data from the dedicated spindle sensor stream.</p>
+            <div class="chart-panel__meta">Last update: <span id="spindleLastUpdate">--</span></div>
+            <div id="spindleEmptyState" class="chart-empty-state" hidden>Waiting for spindle sensor data.</div>
             <div class="chart-panel__canvas-wrap">
                 <canvas id="spindleTempChart"></canvas>
             </div>

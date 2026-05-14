@@ -36,9 +36,15 @@ body select option {
   padding: 0 4px;
 }
 
-.selector-hint {
+.selector-badge {
   margin-left: 8px;
-  color: #6b7280;
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  color: #1d4ed8;
+  background: #eff6ff;
 }
 
 /* for Edge */
@@ -127,11 +133,31 @@ select:disabled::-ms-expand {
 
 .charts-grid {
   max-width: 960px;
-  margin: 0 auto;
+  margin: 0 auto 1.1rem;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.25rem 1.5rem;
   text-align: left;
+}
+
+.charts-grid--single {
+  grid-template-columns: 1fr;
+}
+
+.charts-section-title {
+  max-width: 960px;
+  margin: 1rem auto 0.25rem;
+  text-align: left;
+  font-size: 1.05rem;
+  color: #111827;
+}
+
+.charts-section-subtitle {
+  max-width: 960px;
+  margin: 0 auto 0.7rem;
+  text-align: left;
+  font-size: 0.85rem;
+  color: #6b7280;
 }
 
 .chart-panel {
@@ -157,6 +183,22 @@ select:disabled::-ms-expand {
   margin: 0 0 0.5rem;
   font-size: 0.85rem;
   color: #6b7280;
+}
+
+.chart-panel__meta {
+  margin: 0 0 0.45rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.chart-empty-state {
+  margin: 0 0 0.5rem;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  border: 1px solid #f3d59a;
+  background: #fff7e6;
+  color: #9a3412;
 }
 
 .chart-panel__canvas-wrap {
